@@ -1,0 +1,216 @@
+{
+  "name": "MaysCentral Event Registration Webhook",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "new-registration",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-trigger",
+      "name": "Webhook Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [250, 300],
+      "webhookId": "new-registration"
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combinationMode": "mergeByPosition",
+        "options": {}
+      },
+      "id": "merge-data",
+      "name": "Merge Data",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 2,
+      "position": [450, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "condition-confirmed",
+              "leftValue": "={{ $json.body.status }}",
+              "rightValue": "confirmed",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "if-confirmed",
+      "name": "IF Status = confirmed",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [650, 200]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "condition-waitlisted",
+              "leftValue": "={{ $json.body.status }}",
+              "rightValue": "waitlisted",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "if-waitlisted",
+      "name": "IF Status = waitlisted",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [650, 400]
+    },
+    {
+      "parameters": {
+        "fromEmail": "={{ $env.SMTP_FROM_EMAIL }}",
+        "toEmail": "={{ $json.body.email }}",
+        "subject": "Your MaysCentral Event Registration is Confirmed!",
+        "text": "Hi {{ $json.body.name }},\n\nYou're registered for {{ $json.body.eventName }}.\n\nEvent Details:\n- Date & Time: {{ $json.body.eventDate }}\n- Venue: {{ $json.body.eventVenue }}\n\nWe look forward to seeing you there!\n\n— MaysCentral\nCMIS, Texas A&M University",
+        "options": {
+          "allowUnauthorizedCerts": true
+        }
+      },
+      "id": "send-confirmation-email",
+      "name": "Send Confirmation Email",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2,
+      "position": [850, 100],
+      "credentials": {
+        "smtp": {
+          "id": "smtp-credentials",
+          "name": "SMTP Account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "fromEmail": "={{ $env.SMTP_FROM_EMAIL }}",
+        "toEmail": "={{ $json.body.email }}",
+        "subject": "You Have Been Waitlisted — MaysCentral",
+        "text": "Hi {{ $json.body.name }},\n\nThe event \"{{ $json.body.eventName }}\" is currently full.\nYou have been added to the waitlist.\n\nEvent Details:\n- Date & Time: {{ $json.body.eventDate }}\n- Venue: {{ $json.body.eventVenue }}\n\nWe will notify you if a spot opens up.\n\n— MaysCentral\nCMIS, Texas A&M University",
+        "options": {
+          "allowUnauthorizedCerts": true
+        }
+      },
+      "id": "send-waitlist-email",
+      "name": "Send Waitlist Email",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2,
+      "position": [850, 500],
+      "credentials": {
+        "smtp": {
+          "id": "smtp-credentials",
+          "name": "SMTP Account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { \"success\": true, \"message\": \"Email sent successfully\" } }}"
+      },
+      "id": "respond-webhook",
+      "name": "Respond to Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [1050, 300]
+    }
+  ],
+  "connections": {
+    "Webhook Trigger": {
+      "main": [
+        [
+          {
+            "node": "IF Status = confirmed",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "IF Status = waitlisted",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF Status = confirmed": {
+      "main": [
+        [
+          {
+            "node": "Send Confirmation Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF Status = waitlisted": {
+      "main": [
+        [
+          {
+            "node": "Send Waitlist Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Confirmation Email": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Waitlist Email": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": [],
+  "triggerCount": 1,
+  "updatedAt": "2024-01-01T00:00:00.000Z",
+  "versionId": "1"
+}
+
